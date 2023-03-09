@@ -21,7 +21,7 @@ library(fable)
 
 # Part 0: Lab set-up
 
-- Fork the [lab 9 repo from GitHub](https://github.com/oharac/esm244_w22_lab9), then clone to create a local version-controlled R Project. The project contains the required data in a `data` subfolder, and the keys in the `keys` subfolder. The keys should be for reference if you get stuck - but it is very important for learning and retention that you try following along **on your own** first, troubleshooting as needed, before you use the key for help. 
+- Fork the [lab 9 repo from GitHub](https://github.com/oharac/esm244_w2023_lab9), then clone to create a local version-controlled R Project. The project contains the required data in a `data` subfolder, and the keys in the `keys` subfolder. The keys should be for reference if you get stuck - but it is very important for learning and retention that you try following along **on your own** first, troubleshooting as needed, before you use the key for help. 
 
 - Add a new subfolder (called `my_code` or something) where you'll save your R Markdown documents following along with the instructions below. 
 

@@ -66,6 +66,12 @@ sw_tornado <- starwars %>%
   mutate(name = str_replace(name, pattern = "Sky", replacement = "TORNADO"))
 ```
 
+```{r}
+sw_wacky <- starwars %>%
+  mutate(name2 = str_replace(name, pattern = '(w|W)b?a.+', replacement = 'WACKY')) %>%
+  select(name, name2)
+```
+
 
 ### Remove white space
 
