@@ -146,7 +146,7 @@ Let's explore the sentiment lexicons. "bing" included, other lexicons ("afinn", 
 
 positive)
 ```{r}
-get_sentiments(lexicon = "afinn")
+afinn_lex <- get_sentiments(lexicon = "afinn")
 ### you may be prompted to download an updated lexicon - say yes!
 
 # Let's look at the pretty positive words:
@@ -160,7 +160,7 @@ DT::datatable(afinn_pos)
 For comparison, check out the bing lexicon: 
 
 ```{r}
-get_sentiments(lexicon = "bing")
+bing_lex <- get_sentiments(lexicon = "bing")
 ```
 
 And the nrc lexicon:https://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm
@@ -170,7 +170,7 @@ Includes bins for 8 emotions (anger, anticipation, disgust, fear, joy, sadness, 
 
 Now nrc:
 ```{r}
-get_sentiments(lexicon = "nrc")
+nrc_lex <- get_sentiments(lexicon = "nrc")
 ```
 
 ### Sentiment analysis with afinn: 
@@ -178,13 +178,14 @@ get_sentiments(lexicon = "nrc")
 First, bind words in `hobbit_nonstop_words` to `afinn` lexicon:
 ```{r}
 hobbit_afinn <- hobbit_words_clean %>% 
-  inner_join(get_sentiments("afinn"), by = 'word')
+  inner_join(afinn_lex, by = 'word')
 ```
 
 Let's find some counts (by sentiment ranking):
 ```{r}
 afinn_counts <- hobbit_afinn %>% 
-  count(chapter, value)
+  group_by(chapter, value) %>%
+  summarize(n = n())
 
 # Plot them: 
 ggplot(data = afinn_counts, aes(x = value, y = n)) +
@@ -205,6 +206,56 @@ ggplot(data = afinn_means,
   
 ```
 
+
+### Sentiment analysis with bing: 
+
+First, bind words in `hobbit_nonstop_words` to `bing` lexicon:
+```{r}
+hobbit_bing <- hobbit_words_clean %>% 
+  inner_join(bing_lex, by = 'word')
+```
+
+Let's find some counts of positive vs negative:
+```{r}
+bing_counts <- hobbit_bing %>% 
+  # group_by(chapter, sentiment) %>%
+  # summarize(n = n())
+  count(chapter, sentiment)
+
+# Plot them: 
+ggplot(data = bing_counts, aes(x = sentiment, y = n)) +
+  geom_col() +
+  facet_wrap(~chapter)
+
+# find log ratio score overall:
+bing_log_ratio_book <- hobbit_bing %>% 
+  summarize(n_pos = sum(sentiment == 'positive'),
+            n_neg = sum(sentiment == 'negative'),
+            log_ratio = log(n_pos / n_neg))
+
+# Find the log ratio score by chapter: 
+bing_log_ratio_ch <- hobbit_bing %>% 
+  group_by(chapter) %>% 
+  summarize(n_pos = sum(sentiment == 'positive'),
+            n_neg = sum(sentiment == 'negative'),
+            log_ratio = log(n_pos / n_neg)) %>%
+  mutate(log_ratio_adjust = log_ratio - bing_log_ratio_book$log_ratio) %>%
+  mutate(pos_neg = ifelse(log_ratio_adjust > 0, 'pos', 'neg'))
+
+ggplot(data = bing_log_ratio_ch, 
+       aes(x = log_ratio_adjust,
+           y = fct_rev(factor(chapter)),
+           fill = pos_neg)) +
+           # y = fct_rev(as.factor(chapter)))) +
+  geom_col() +
+  labs(x = 'Adjusted log(positive/negative)',
+       y = 'Chapter number') +
+  scale_fill_manual(values = c('pos' = 'slateblue', 'neg' = 'darkred')) +
+  theme_minimal() +
+  theme(legend.position = 'none')
+  
+```
+
 ### Now with NRC lexicon
 
 Recall, this assigns words to sentiment bins. Let's bind our hobbit data to the NRC lexicon: 
@@ -219,11 +270,18 @@ Let's find the count of words by chapter and sentiment bin:
 hobbit_nrc_counts <- hobbit_nrc %>% 
   count(chapter, sentiment)
 
-
-ggplot(data = hobbit_nrc_counts, aes(x = sentiment, y = n)) +
+ggplot(data = hobbit_nrc_counts, aes(x = n, y = sentiment)) +
   geom_col() +
-  facet_wrap(~chapter) +
-  coord_flip()
+  facet_wrap(~chapter)
+### perhaps order or color the sentiments by positive/negative
+
+ggplot(data = hobbit_nrc_counts, aes(x = n, 
+                                     y = factor(chapter) %>%
+                                       fct_rev())) +
+  geom_col() +
+  facet_wrap(~sentiment) +
+  labs(y = 'chapter')
+
 ```
 
 ### End text mining, exploration, & sentiment analysis introduction
