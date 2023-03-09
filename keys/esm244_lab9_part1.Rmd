@@ -34,7 +34,7 @@ To reinforce skills for wrangling, visualizing, and forecasting with time series
 - Source: US Energy Information Administration (data.gov)
 
 ### A. Create a new .Rmd
-
+##
 - Create a new R Markdown document
 - Remove everything below the first code chunk
 - Attach packages: `tidyverse`, `tsibble`, `feasts`, `fable`, `broom`
