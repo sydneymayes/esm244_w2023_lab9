@@ -1,0 +1,133 @@
+---
+title: 'Lab 9, Part 1: Time Series Analysis'
+author: "Sydney Mayes"
+date: "2023-03-10"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=TRUE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+library(tidyverse)
+library(here)
+library(tsibble)
+library(feasts)
+library(fable)
+library(broom)
+```
+
+## Read in our energy data and convert to a tsibble
+Data here are from teh US Energy Infromation Administration. US Residential energy consumption from January 1973 through October 2017. Units are in trillions of btus
+
+```{r}
+energy_df <- read_csv(here('data', 'energy.csv'))
+
+energy_ts <- energy_df %>% 
+  mutate(date = tsibble::yearmonth(month)) %>% 
+  as_tsibble(key = NULL, index = date)
+
+```
+
+## Exploratory time series viusualization
+
+```{r}
+ggplot(data = energy_ts, aes(x = date, y = res_total)) +
+  geom_line() +
+  labs(y = 'Residential energy consumption\n (Trillion BTU)')
+
+# There seems to be an increasing trend, but may level off around 2005. There is a pretty clear seasonality -- a big spike that seems to match up well with each year. A big spike then a small spike rather than a valley. Doesn't seem to be strong cyclic nature or outliers.
+```
+### Season plot
+
+```{r}
+energy_ts %>% 
+  gg_season(y = res_total) + # from feasts package; already knows the x
+  theme_minimal() +
+  scale_color_viridis_c() + # c is for continuous variable since dealing with years
+  labs(x = 'month', 
+       y = 'residential energy consumption (trillion BTU)')
+
+# Based on the graph it looks like November-February higher consumption may be related to winter months/less daylight/heat. Summer increase may be due to AC usage.
+```
+
+### Subseries plot
+```{r}
+energy_ts %>% 
+  gg_subseries(y = res_total) 
+
+# shows each month and the trend across the whole time series
+```
+## Decomposition (into different components)
+
+```{r}
+# Classical decomposition based on trend; seasonality is average across all years
+# But what we used last week is STL decomposition. Loess is the method for estimating nonlinear relationships, based on weighted rolling average; very different from classical decomposition
+
+# STL decomposition vs classical decomposition -- classical has same seasonality over entier series, but STL allows seasonality to change over time. 
+
+### Calculate the STL decomposition:
+dcmp <- energy_ts %>% 
+  model(STL(res_total ~ season()))
+
+### Visualize
+components(dcmp) %>% 
+  autoplot() + # autoplot adds a ggplot object so use + not pipe operator
+  theme_minimal()
+# The vertical bars on the plot show the height of the remainder portion (in this case about 600 units for each of the 4 graphs)
+  
+```
+## Autocorrelation function (ACF)
+```{r}
+# Compares the value in every month to the value in one month later, two months later, three, etc
+
+energy_ts %>% 
+  ACF(y = res_total) %>%  # feasts function over stats since we have a tsibble (time series)
+  autoplot()
+
+# 6 months out has a small positive correlation probably because of the summer AC usage. We see similar trends every 12 months. This is in line with what we expected from previous plots
+```
+### Forecasting with Holt-Winters exponential smoothing
+
+```{r}
+# pays more attention to recent observations/events than those in the far past. Exponential decay in terms of the strength of the contributions of past events
+
+### Create our model
+energy_fit <- energy_ts %>% 
+  model(ets = ETS(res_total ~ season('M'))) # will consider this as a multiplicative seasonality model
+
+### create a forecast based on our model, 10 years into the future
+energy_forecast <- energy_fit %>% 
+  forecast(h = '10 years') # from the fable package
+
+energy_forecast %>% 
+  autoplot()
+
+# confidence intervals get wider out in time as the years go out since there is more uncertainty
+```
+Now plot the actual res_total values on top of the predicted values to see how well our fit data matches up with our observed data
+```{r}
+### append the predicted values (and residuals) to the original energy data 
+energy_predicted <- broom::augment(energy_fit)
+
+ggplot(data = energy_predicted) + 
+  geom_line(aes(x = date, y = res_total), color = 'black') +
+  geom_line(aes(x = date, y = .fitted), color = 'red', alpha = 0.7)
+
+# red lines are predicted, black is observed. Looks like a fairly good fit. 
+
+# now let's check out the residuals to make sure they are centered around zero, normally distributed around 0, mean of zero
+ggplot(data = energy_predicted, aes(x = .resid)) +
+  geom_histogram()
+# yes they are
+
+# Are there any correlations or patterns of residuals? If so there may be info we didnt account for when predicting
+ggplot(data = energy_predicted, aes(x = date, y = .resid)) +
+  geom_point()
+# looks to be pretty uncorrelated from the plot, yay
+
+# The above are all important things to check on the model. 
+
+# In the key there is extra code about forecasting methods including seasonal naive, etc. 
+```
+
